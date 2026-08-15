@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Play, Pause, Heart, Sparkles, Brain, Radio, ArrowRight, Zap, Flame, Compass, Music, Disc } from 'lucide-react';
+import { Play, Pause, Heart, Sparkles, Brain, Radio, ArrowRight, Flame, Compass, Music, Disc } from 'lucide-react';
 import { Track, UserProfile, MemoryItem } from '../types';
 
 interface MainFeedProps {
@@ -37,6 +37,13 @@ export const MainFeed: React.FC<MainFeedProps> = ({
     return 'GOOD EVENING';
   };
 
+  const getGreetingWord = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  };
+
   const genres = ['All', 'Punjabi', 'Electronic', 'Lo-Fi & Piano', 'Pop', 'Indie'];
 
   const filteredTracks = tracks.filter((t) => {
@@ -60,30 +67,26 @@ export const MainFeed: React.FC<MainFeedProps> = ({
           </div>
 
           <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
-            Good afternoon, {activeUser.name}
+            {getGreetingWord()}, {activeUser.name}
           </h2>
 
           <p className="text-sm sm:text-base text-gray-300 font-normal leading-relaxed">
-            NexTune learns from every play, skip, and chat — then surfaces music you'll actually love.
+            Picked from what you've played, skipped, and told me directly — no re-explaining your taste every time.
           </p>
 
           {/* Feature Badges */}
           <div className="flex flex-wrap items-center gap-2.5 pt-2">
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-gray-800/90 text-emerald-300 border border-gray-700/80 shadow-sm">
               <Music className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Smart playback</span>
+              <span>{tracks.length} tracks in rotation</span>
             </div>
             <button
               onClick={onOpenConsole}
               className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-gray-800/90 hover:bg-gray-700 text-teal-300 border border-gray-700/80 transition-colors shadow-sm"
             >
               <Brain className="w-3.5 h-3.5 text-teal-400" />
-              <span>AI memory ({userMemories.length} active)</span>
+              <span>{userMemories.length} things I remember about you</span>
             </button>
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-gray-800/90 text-amber-300 border border-gray-700/80 shadow-sm">
-              <Zap className="w-3.5 h-3.5 text-amber-400" />
-              <span>Personalized picks</span>
-            </div>
           </div>
         </div>
       </div>

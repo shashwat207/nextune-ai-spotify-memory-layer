@@ -674,9 +674,9 @@ export const InternalConsoleModal: React.FC<InternalConsoleModalProps> = ({
 
               {/* Architectural Value Summary */}
               <div className="p-6 rounded-2xl bg-gradient-to-r from-gray-900 via-emerald-950/40 to-gray-900 border border-emerald-800/40 space-y-3">
-                <h4 className="font-bold text-base text-white">How NexTune AI Solves Spotify's Fragmentation Problem</h4>
+                <h4 className="font-bold text-base text-white">Why this exists</h4>
                 <p className="text-xs text-gray-300 leading-relaxed">
-                  Traditional Spotify AI features treat each chat or session independently, frequently forgetting past user preferences (e.g. "I like soft piano for coding" or "don't suggest heavy metal"). NexTune establishes a unified multi-tiered memory architecture:
+                  Most chat-based recommenders forget everything the moment a session ends — you'd have to re-explain "I like soft piano for coding" every single time. This demo keeps that context around instead, using three stores that each do one job:
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
                   <div className="p-3 bg-black/50 rounded-lg border border-gray-800 text-xs">
