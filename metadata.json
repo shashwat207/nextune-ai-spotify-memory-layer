@@ -1,0 +1,8 @@
+{
+  "name": "Remix NexTune AI - Spotify Memory Layer",
+  "description": "Intelligent personalized music recommendation platform powered by LangGraph memory workflow, Vector DB semantic retrieval, Neo4j knowledge graph, and Gemini LLM.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
