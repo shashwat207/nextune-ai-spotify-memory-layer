@@ -1,16 +1,20 @@
 import express from 'express';
 import path from 'path';
 import dotenv from 'dotenv';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import cookieParser from 'cookie-parser';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
-import { 
-  USERS, 
-  INITIAL_TRACKS, 
-  INITIAL_MEMORIES, 
-  INITIAL_GRAPH_NODES, 
-  INITIAL_GRAPH_EDGES, 
-  INITIAL_POSTGRES_LOGS 
+import {
+  USERS,
+  INITIAL_TRACKS,
+  INITIAL_MEMORIES,
+  INITIAL_GRAPH_NODES,
+  INITIAL_GRAPH_EDGES,
+  INITIAL_POSTGRES_LOGS
 } from './src/data/musicCatalog';
+import { AUTH_CREDENTIALS } from './src/data/authCredentials';
 import { searchVectorMemory, generateEmbedding } from './src/utils/vectorEngine';
 import { traverseKnowledgeGraph } from './src/utils/graphEngine';
 import { MemoryItem, Track, WorkflowTrace, PostgresInteractionLog } from './src/types';
@@ -21,6 +25,44 @@ const app = express();
 const PORT = 3000;
 
 app.use(express.json());
+app.use(cookieParser());
+
+// JWT signing secret. Falls back to a dev-only value so the demo still runs
+// locally without setup, but this MUST be overridden via env var in production —
+// anyone who reads this source can forge sessions otherwise.
+const JWT_SECRET = process.env.JWT_SECRET || 'nextune-insecure-dev-secret-do-not-use-in-production';
+if (!process.env.JWT_SECRET) {
+  console.warn('[auth] JWT_SECRET is not set — using an insecure dev fallback. Set JWT_SECRET in your environment before treating this as anything beyond a demo.');
+}
+const SESSION_COOKIE = 'nextune_session';
+
+function signSession(userId: string): string {
+  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '7d' });
+}
+
+// Extracts and verifies the session cookie, attaching req.userId.
+// Every route that touches memory data must use req.userId — never a
+// client-supplied param/body value — so one user can never read or
+// mutate another user's memories.
+function requireAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const token = req.cookies?.[SESSION_COOKIE];
+  if (!token) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+  try {
+    const payload = jwt.verify(token, JWT_SECRET) as { userId: string };
+    (req as any).userId = payload.userId;
+    next();
+  } catch {
+    return res.status(401).json({ error: 'Session expired or invalid' });
+  }
+}
+
+function publicUser(userId: string) {
+  const user = USERS.find(u => u.id === userId);
+  if (!user) return null;
+  return user;
+}
 
 // In-memory state for runtime session sync
 let memoryStore = { ...INITIAL_MEMORIES };
@@ -45,6 +87,48 @@ function getGeminiClient(): GoogleGenAI | null {
   });
 }
 
+// Auth: login
+app.post('/api/auth/login', async (req, res) => {
+  const { email, password, rememberMe } = req.body || {};
+
+  if (!email || typeof email !== 'string' || !password || typeof password !== 'string') {
+    return res.status(400).json({ error: 'Email and password are required' });
+  }
+
+  const credential = AUTH_CREDENTIALS.find(c => c.email.toLowerCase() === email.toLowerCase());
+  // Always run bcrypt.compare even when no account matches, so response timing
+  // doesn't reveal whether the email exists.
+  const hashToCheck = credential?.passwordHash || '$2b$10$invalidinvalidinvalidinvalidinvalidinvalidinvalidinva';
+  const isValid = await bcrypt.compare(password, hashToCheck);
+
+  if (!credential || !isValid) {
+    return res.status(401).json({ error: 'Invalid email or password' });
+  }
+
+  const token = signSession(credential.userId);
+  res.cookie(SESSION_COOKIE, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: rememberMe ? 30 * 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000,
+  });
+
+  res.json({ user: publicUser(credential.userId) });
+});
+
+// Auth: logout
+app.post('/api/auth/logout', (req, res) => {
+  res.clearCookie(SESSION_COOKIE);
+  res.json({ success: true });
+});
+
+// Auth: current session
+app.get('/api/auth/me', requireAuth, (req, res) => {
+  const user = publicUser((req as any).userId);
+  if (!user) return res.status(401).json({ error: 'Not authenticated' });
+  res.json({ user });
+});
+
 // Health API
 app.get('/api/health', (req, res) => {
   res.json({
@@ -55,63 +139,75 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Users
-app.get('/api/users', (req, res) => {
+// Users (only needed post-login; gated so it can't be scraped pre-auth)
+app.get('/api/users', requireAuth, (req, res) => {
   res.json({ users: USERS });
 });
 
-// Tracks
+// Tracks (shared catalog, not user-specific data)
 app.get('/api/tracks', (req, res) => {
   res.json({ tracks: tracksCatalog });
 });
 
-// Memory DB endpoints
-app.get('/api/memories/:userId', (req, res) => {
-  const { userId } = req.params;
-  const userMems = memoryStore[userId] || [];
+// Memory DB endpoints — userId always comes from the verified session,
+// never from the URL/body, so one account can never read or touch another's memories.
+app.get('/api/memories/:userId', requireAuth, (req, res) => {
+  const authedUserId = (req as any).userId;
+  if (req.params.userId !== authedUserId) {
+    return res.status(403).json({ error: 'Cannot access another user\'s memories' });
+  }
+  const userMems = memoryStore[authedUserId] || [];
   res.json({ memories: userMems });
 });
 
-app.post('/api/memories/delete', (req, res) => {
-  const { userId, memoryId } = req.body;
-  if (memoryStore[userId]) {
-    memoryStore[userId] = memoryStore[userId].filter(m => m.id !== memoryId);
+app.post('/api/memories/delete', requireAuth, (req, res) => {
+  const authedUserId = (req as any).userId;
+  const { memoryId } = req.body;
+  if (memoryStore[authedUserId]) {
+    memoryStore[authedUserId] = memoryStore[authedUserId].filter(m => m.id !== memoryId);
   }
   // Also log to postgres
   postgresLogs.unshift({
     id: `pg_del_${Date.now()}`,
-    userId,
+    userId: authedUserId,
     eventType: 'CORRECTION',
     details: `User explicitly deleted memory item ${memoryId}`,
     createdAt: new Date().toISOString(),
   });
-  res.json({ success: true, memories: memoryStore[userId] || [] });
+  res.json({ success: true, memories: memoryStore[authedUserId] || [] });
 });
 
 // Graph endpoints
-app.get('/api/graph', (req, res) => {
+app.get('/api/graph', requireAuth, (req, res) => {
   res.json({ nodes: graphNodes, edges: graphEdges });
 });
 
 // Postgres Audit Logs
-app.get('/api/logs/:userId', (req, res) => {
-  const { userId } = req.params;
-  const logs = postgresLogs.filter(l => l.userId === userId);
+app.get('/api/logs/:userId', requireAuth, (req, res) => {
+  const authedUserId = (req as any).userId;
+  if (req.params.userId !== authedUserId) {
+    return res.status(403).json({ error: 'Cannot access another user\'s logs' });
+  }
+  const logs = postgresLogs.filter(l => l.userId === authedUserId);
   res.json({ logs });
 });
 
 // Full 12-Step LangGraph Orchestration Endpoint
-app.post('/api/workflow/orchestrate', async (req, res) => {
+app.post('/api/workflow/orchestrate', requireAuth, async (req, res) => {
   const startTime = Date.now();
-  const { userId, query, currentTrackId } = req.body;
+  const authedUserId = (req as any).userId;
+  const { query, currentTrackId } = req.body;
 
   if (!query || typeof query !== 'string') {
     return res.status(400).json({ error: 'Query string is required' });
   }
 
-  // Step 2: Authenticate User
+  // Step 2: Authenticate User — identity comes from the verified session, never the request body
   const tAuthStart = Date.now();
-  const activeUser = USERS.find(u => u.id === userId) || USERS[0];
+  const activeUser = USERS.find(u => u.id === authedUserId);
+  if (!activeUser) {
+    return res.status(401).json({ error: 'Session user no longer exists' });
+  }
   const tAuth = Date.now() - tAuthStart;
 
   // Step 3: Vector DB Retrieval

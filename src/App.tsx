@@ -4,17 +4,21 @@ import { MainFeed } from './components/MainFeed';
 import { NexTuneAIChat } from './components/NexTuneAIChat';
 import { MusicPlayerBar } from './components/MusicPlayerBar';
 import { InternalConsoleModal } from './components/InternalConsoleModal';
-import { USERS, INITIAL_TRACKS, INITIAL_MEMORIES, INITIAL_GRAPH_NODES, INITIAL_GRAPH_EDGES, INITIAL_POSTGRES_LOGS } from './data/musicCatalog';
+import { LoginPage } from './components/LoginPage';
+import { INITIAL_TRACKS, INITIAL_GRAPH_NODES, INITIAL_GRAPH_EDGES, INITIAL_POSTGRES_LOGS } from './data/musicCatalog';
 import { Track, UserProfile, MemoryItem, KnowledgeNode, KnowledgeEdge, PostgresInteractionLog, WorkflowTrace } from './types';
 import { audioEngine } from './utils/audioSynth';
 
+type AuthStatus = 'checking' | 'authenticated' | 'unauthenticated';
+
 export default function App() {
-  // Active User State
-  const [activeUser, setActiveUser] = useState<UserProfile>(USERS[0]);
+  // Auth State — nothing personalized renders until this resolves to 'authenticated'
+  const [authStatus, setAuthStatus] = useState<AuthStatus>('checking');
+  const [activeUser, setActiveUser] = useState<UserProfile | null>(null);
 
   // Data Collections
   const [tracks, setTracks] = useState<Track[]>(INITIAL_TRACKS);
-  const [userMemories, setUserMemories] = useState<MemoryItem[]>(INITIAL_MEMORIES[USERS[0].id] || []);
+  const [userMemories, setUserMemories] = useState<MemoryItem[]>([]);
   const [graphNodes, setGraphNodes] = useState<KnowledgeNode[]>(INITIAL_GRAPH_NODES);
   const [graphEdges, setGraphEdges] = useState<KnowledgeEdge[]>(INITIAL_GRAPH_EDGES);
   const [postgresLogs, setPostgresLogs] = useState<PostgresInteractionLog[]>(INITIAL_POSTGRES_LOGS);
@@ -34,10 +38,21 @@ export default function App() {
   const [externalPrompt, setExternalPrompt] = useState<string>('');
   const [lastTrace, setLastTrace] = useState<WorkflowTrace | undefined>(undefined);
 
-  // Sync state when active user changes
+  // Check for an existing session on load (e.g. page refresh)
   useEffect(() => {
-    setUserMemories(INITIAL_MEMORIES[activeUser.id] || []);
-    // Fetch from backend
+    fetch('/api/auth/me')
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((data) => {
+        setActiveUser(data.user);
+        setAuthStatus('authenticated');
+      })
+      .catch(() => setAuthStatus('unauthenticated'));
+  }, []);
+
+  // Sync personalized data once we know who's logged in
+  useEffect(() => {
+    if (!activeUser) return;
+
     fetch(`/api/memories/${activeUser.id}`)
       .then((res) => res.json())
       .then((data) => {
@@ -55,6 +70,8 @@ export default function App() {
 
   // Refetch memories helper
   const reloadMemories = () => {
+    if (!activeUser) return;
+
     fetch(`/api/memories/${activeUser.id}`)
       .then((res) => res.json())
       .then((data) => {
@@ -78,6 +95,20 @@ export default function App() {
       .catch(() => {});
   };
 
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch {
+      // ignore — clear client state regardless
+    }
+    audioEngine.stop();
+    setIsPlaying(false);
+    setActiveUser(null);
+    setUserMemories([]);
+    setPostgresLogs([]);
+    setAuthStatus('unauthenticated');
+  };
+
   // Playback Controls
   const handlePlayTrack = (track: Track) => {
     setCurrentTrack(track);
@@ -93,6 +124,7 @@ export default function App() {
     );
 
     // Log PLAY event to Postgres
+    if (!activeUser) return;
     const newLog: PostgresInteractionLog = {
       id: `pg_play_${Date.now()}`,
       userId: activeUser.id,
@@ -130,7 +162,7 @@ export default function App() {
     if (!currentTrack) return;
     
     // Check if skipped early (< 15 seconds) to log skip penalty
-    if (currentTimeSeconds > 0 && currentTimeSeconds < 15) {
+    if (activeUser && currentTimeSeconds > 0 && currentTimeSeconds < 15) {
       const skipLog: PostgresInteractionLog = {
         id: `pg_skip_${Date.now()}`,
         userId: activeUser.id,
@@ -164,7 +196,7 @@ export default function App() {
   const handleToggleFavorite = (trackId: string) => {
     setTracks((prev) =>
       prev.map((t) => {
-        if (t.id === trackId) {
+        if (t.id === trackId && activeUser) {
           const newFavState = !t.isFavorite;
 
           // Log to Postgres
@@ -195,7 +227,7 @@ export default function App() {
       await fetch('/api/memories/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: activeUser.id, memoryId }),
+        body: JSON.stringify({ memoryId }),
       });
       reloadMemories();
     } catch {
@@ -216,12 +248,31 @@ export default function App() {
     );
   });
 
+  if (authStatus === 'checking') {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-[#070a0e] text-gray-400 text-sm">
+        Loading...
+      </div>
+    );
+  }
+
+  if (authStatus === 'unauthenticated' || !activeUser) {
+    return (
+      <LoginPage
+        onLoginSuccess={(user) => {
+          setActiveUser(user);
+          setAuthStatus('authenticated');
+        }}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col h-screen w-screen bg-[#070a0e] text-white select-none overflow-hidden font-sans">
       {/* Top Header */}
       <Header
         activeUser={activeUser}
-        onSelectUser={setActiveUser}
+        onLogout={handleLogout}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         onOpenConsole={() => setIsConsoleOpen(true)}

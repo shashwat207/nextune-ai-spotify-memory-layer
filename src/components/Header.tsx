@@ -1,11 +1,10 @@
 import React from 'react';
-import { Sparkles, Search, Sliders, Database, Network, Disc3, ShieldCheck, User } from 'lucide-react';
+import { Sparkles, Search, Sliders, Database, Network, Disc3, ShieldCheck, User, LogOut } from 'lucide-react';
 import { UserProfile } from '../types';
-import { USERS } from '../data/musicCatalog';
 
 interface HeaderProps {
   activeUser: UserProfile;
-  onSelectUser: (user: UserProfile) => void;
+  onLogout: () => void;
   searchQuery: string;
   onSearchChange: (q: string) => void;
   onOpenConsole: () => void;
@@ -16,7 +15,7 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({
   activeUser,
-  onSelectUser,
+  onLogout,
   searchQuery,
   onSearchChange,
   onOpenConsole,
@@ -145,31 +144,16 @@ export const Header: React.FC<HeaderProps> = ({
                 <p className="text-[11px] text-emerald-400 font-mono truncate">{activeUser.email}</p>
               </div>
               <div className="py-1">
-                <p className="px-3 py-1.5 text-[10px] uppercase tracking-wider font-semibold text-gray-500">
-                  Switch Listener Profile
-                </p>
-                {USERS.map((u) => (
-                  <button
-                    key={u.id}
-                    onClick={() => {
-                      onSelectUser(u);
-                      setShowUserMenu(false);
-                    }}
-                    className={`w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors ${
-                      u.id === activeUser.id
-                        ? 'bg-emerald-950/70 text-emerald-300 font-medium border border-emerald-800/40'
-                        : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-                    }`}
-                  >
-                    <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center text-[10px] font-bold text-gray-200">
-                      {u.initials}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="truncate font-medium">{u.name}</p>
-                      <p className="text-[10px] text-gray-500 truncate">{u.handle}</p>
-                    </div>
-                  </button>
-                ))}
+                <button
+                  onClick={() => {
+                    setShowUserMenu(false);
+                    onLogout();
+                  }}
+                  className="w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-red-300 hover:bg-red-950/40 transition-colors"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span className="font-medium">Log out</span>
+                </button>
               </div>
             </div>
           )}

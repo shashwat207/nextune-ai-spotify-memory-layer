@@ -91,7 +91,6 @@ export const NexTuneAIChat: React.FC<NexTuneAIChatProps> = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: activeUser.id,
           query: textToSend,
           currentTrackId: currentTrack?.id,
         }),
