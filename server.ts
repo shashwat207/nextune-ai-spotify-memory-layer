@@ -4,7 +4,6 @@ import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import cookieParser from 'cookie-parser';
-import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import {
   USERS,
@@ -557,6 +556,9 @@ Task: Respond in a warm, knowledgeable music curator tone.
 // Vite middleware & Static serving
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
+    // Dynamic import: keeps vite/rollup out of the Vercel serverless bundle entirely —
+    // this branch (and this import) never runs there, only in local dev.
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
