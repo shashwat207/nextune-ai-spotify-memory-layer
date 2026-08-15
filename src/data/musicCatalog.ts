@@ -3,11 +3,11 @@ import { Track, UserProfile, MemoryItem, KnowledgeNode, KnowledgeEdge, PostgresI
 export const USERS: UserProfile[] = [
   {
     id: 'user_shashwat_101',
-    name: 'Shashwat Jaiswal',
-    handle: '@shashwatj',
+    name: 'Listener',
+    handle: '@listener',
     avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-    email: 'shashwat.j@spotify.internal',
-    initials: 'SJ',
+    email: 'listener@nextune.ai',
+    initials: 'L',
     bio: 'Heavy Punjabi hip-hop, synthwave late-night coder & Lo-Fi enthusiast',
   },
   {
@@ -430,7 +430,7 @@ export const INITIAL_MEMORIES: Record<string, MemoryItem[]> = {
 
 export const INITIAL_GRAPH_NODES: KnowledgeNode[] = [
   // User Node
-  { id: 'user:shashwat', label: 'Shashwat Jaiswal', type: 'User', properties: { tier: 'Premium', country: 'IN' }, color: '#10B981', val: 24 },
+  { id: 'user:shashwat', label: 'Listener', type: 'User', properties: { tier: 'Premium', country: 'IN' }, color: '#10B981', val: 24 },
   
   // Punjabi Cluster
   { id: 'genre:punjabi', label: 'Punjabi Music', type: 'Genre', properties: { roots: 'Folk / Bhangra', regions: 'Punjab / Canada' }, color: '#F59E0B', val: 28 },

@@ -127,7 +127,7 @@ export const NexTuneAIChat: React.FC<NexTuneAIChatProps> = ({
       const fallbackMsg: ChatMessage = {
         id: `ast_${Date.now()}`,
         sender: 'assistant',
-        text: `Since you've previously enjoyed ${activeUser.name.includes('Shashwat') ? 'Sidhu Moosewala & Nova Lane' : 'vibrant melodies'}, here are top handpicked picks from your graph.`,
+        text: `Since you've previously enjoyed ${activeUser.id === 'user_shashwat_101' ? 'Sidhu Moosewala & Nova Lane' : 'vibrant melodies'}, here are top handpicked picks from your graph.`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         recommendedTrackIds: ['trk_wavy', 'trk_goat', 'trk_295'],
         reasoningWhy: 'Vector match: 92% similarity with Punjabi & Synthwave memories.',
