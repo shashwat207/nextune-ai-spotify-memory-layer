@@ -13,11 +13,11 @@ import {
   INITIAL_GRAPH_NODES,
   INITIAL_GRAPH_EDGES,
   INITIAL_POSTGRES_LOGS
-} from './src/data/musicCatalog';
-import { AUTH_CREDENTIALS } from './src/data/authCredentials';
-import { searchVectorMemory, generateEmbedding } from './src/utils/vectorEngine';
-import { traverseKnowledgeGraph } from './src/utils/graphEngine';
-import { MemoryItem, Track, WorkflowTrace, PostgresInteractionLog } from './src/types';
+} from './src/data/musicCatalog.js';
+import { AUTH_CREDENTIALS } from './src/data/authCredentials.js';
+import { searchVectorMemory, generateEmbedding } from './src/utils/vectorEngine.js';
+import { traverseKnowledgeGraph } from './src/utils/graphEngine.js';
+import type { MemoryItem, Track, WorkflowTrace, PostgresInteractionLog } from './src/types.js';
 
 dotenv.config();
 

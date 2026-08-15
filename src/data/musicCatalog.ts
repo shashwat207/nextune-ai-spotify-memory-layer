@@ -1,4 +1,4 @@
-import { Track, UserProfile, MemoryItem, KnowledgeNode, KnowledgeEdge, PostgresInteractionLog } from '../types';
+import type { Track, UserProfile, MemoryItem, KnowledgeNode, KnowledgeEdge, PostgresInteractionLog } from '../types';
 
 export const USERS: UserProfile[] = [
   {

@@ -1,4 +1,4 @@
-import { MemoryItem } from '../types';
+import type { MemoryItem } from '../types';
 
 // Deterministic semantic embedding projection
 export function generateEmbedding(text: string): number[] {

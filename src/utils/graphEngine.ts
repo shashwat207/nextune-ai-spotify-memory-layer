@@ -1,4 +1,4 @@
-import { KnowledgeNode, KnowledgeEdge } from '../types';
+import type { KnowledgeNode, KnowledgeEdge } from '../types';
 
 export type GraphTraversalResult = {
   seedEntities: string[];
